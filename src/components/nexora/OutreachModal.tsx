@@ -14,6 +14,7 @@ import {
   CheckCircle2,
   Lock,
   FileCheck,
+  ExternalLink,
 } from 'lucide-react';
 import { LeadItem, OutreachChannel } from '@/types/nexora';
 import {
@@ -46,6 +47,37 @@ function maskPhone(phone?: string): string {
   const clean = phone.replace(/\D/g, '');
   if (clean.length < 6) return '••••••';
   return `••••••${clean.slice(-4)}`;
+}
+
+/**
+ * Safely normalize Indian and international phone numbers for WhatsApp click-to-chat.
+ * Strips spaces, dashes, parentheses, plus signs.
+ * Prepend 91 only for 10-digit Indian mobile numbers starting with 6-9,
+ * or 11 digits starting with 0. Keeps 12-digit Indian numbers (91...) and
+ * preserves international numbers without blindly adding 91.
+ */
+export function normalizeWhatsAppNumber(phone: string): string {
+  if (!phone) return '';
+  const digits = phone.replace(/\D/g, '');
+  if (!digits) return '';
+
+  // 10 digits starting with 6-9 (Standard Indian mobile format)
+  if (digits.length === 10 && /^[6-9]\d{9}$/.test(digits)) {
+    return `91${digits}`;
+  }
+
+  // 11 digits starting with 0 followed by 10-digit Indian mobile
+  if (digits.length === 11 && digits.startsWith('0') && /^[6-9]\d{9}$/.test(digits.slice(1))) {
+    return `91${digits.slice(1)}`;
+  }
+
+  // 12 digits starting with 91 (already formatted Indian number)
+  if (digits.length === 12 && digits.startsWith('91')) {
+    return digits;
+  }
+
+  // Other country codes / international numbers
+  return digits;
 }
 
 export default function OutreachModal({
@@ -274,6 +306,22 @@ export default function OutreachModal({
     }
   };
 
+  // Handle Manual Open in WhatsApp (Temporary client-side manual click-to-chat)
+  // Does NOT automatically mark lead as Contacted because Nexora cannot verify manual send.
+  const handleOpenWhatsApp = () => {
+    if (!currentLead || currentLead.doNotContact) return;
+    if (!currentLead.phone || !currentLead.phone.trim()) return;
+    if (!whatsappBody || !whatsappBody.trim()) return;
+
+    const normalizedNumber = normalizeWhatsAppNumber(currentLead.phone);
+    if (!normalizedNumber) return;
+
+    const encodedText = encodeURIComponent(whatsappBody.trim());
+    const waUrl = `https://wa.me/${normalizedNumber}?text=${encodedText}`;
+
+    window.open(waUrl, '_blank', 'noopener,noreferrer');
+  };
+
   const isWhatsAppEligible =
     Boolean(currentLead.hasPhone) &&
     Boolean(currentLead.whatsappConsent) &&
@@ -459,7 +507,7 @@ export default function OutreachModal({
                 <textarea
                   rows={6}
                   value={whatsappBody}
-                  disabled={isSending || currentLead.doNotContact || !isWhatsAppEligible}
+                  disabled={isSending || currentLead.doNotContact || !currentLead.phone}
                   onChange={(e) => setWhatsappBody(e.target.value)}
                   placeholder="Personalized WhatsApp message..."
                   className="w-full rounded-lg border border-[#22273d] bg-[#121626] p-3 text-xs text-white placeholder-zinc-500 focus:border-emerald-500 focus:outline-none leading-relaxed disabled:opacity-50"
@@ -478,7 +526,7 @@ export default function OutreachModal({
                     <div className="flex items-center gap-2">
                       <AlertCircle className="h-4 w-4 text-amber-400 shrink-0" />
                       <span>
-                        WhatsApp outreach requires recorded recipient consent. Send WhatsApp is disabled.
+                        WhatsApp outreach requires recorded recipient consent for automated API sending.
                       </span>
                     </div>
                     {currentLead.hasPhone && !currentLead.doNotContact && (
@@ -499,9 +547,13 @@ export default function OutreachModal({
                   </div>
                 )}
 
+                <p className="mt-2 text-[11px] text-zinc-400">
+                  Opens WhatsApp with your message prepared. You still control the final Send.
+                </p>
+
                 {!currentLead.hasPhone && (
-                  <p className="mt-2 text-[11px] text-zinc-500">
-                    No phone number exists in CRM for this lead.
+                  <p className="mt-1 text-[11px] text-rose-400">
+                    No phone number exists in CRM for this lead. WhatsApp dispatch is unavailable.
                   </p>
                 )}
               </div>
@@ -528,68 +580,101 @@ export default function OutreachModal({
         </div>
 
         {/* Footer Actions */}
-        <div className="flex items-center justify-between border-t border-[#1c2236] bg-[#090b14] px-6 py-4">
-          <div className="flex items-center gap-1.5 text-[11px] text-zinc-500">
-            <ShieldCheck className="h-3.5 w-3.5 text-zinc-400" />
-            <span>Strict 1-to-1 dispatch. Bulk send is architecturally blocked.</span>
-          </div>
+        <div className="flex flex-col gap-2 border-t border-[#1c2236] bg-[#090b14] px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5 text-[11px] text-zinc-500">
+              <ShieldCheck className="h-3.5 w-3.5 text-zinc-400" />
+              <span>Strict 1-to-1 dispatch. Bulk send is architecturally blocked.</span>
+            </div>
 
-          <div className="flex items-center gap-3">
-            <button
-              onClick={onClose}
-              disabled={isSending || isRecordingConsent}
-              className="rounded-lg border border-[#22273d] bg-transparent px-3.5 py-2 text-xs font-medium text-zinc-300 hover:bg-zinc-800 transition disabled:opacity-50"
-            >
-              Close
-            </button>
-
-            {activeTab === 'email' ? (
+            <div className="flex items-center gap-3">
               <button
-                onClick={() => setShowConfirmEmail(true)}
-                disabled={isSending || currentLead.doNotContact || !currentLead.hasEmail}
-                className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-medium text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40 shadow-sm"
+                onClick={onClose}
+                disabled={isSending || isRecordingConsent}
+                className="rounded-lg border border-[#22273d] bg-transparent px-3.5 py-2 text-xs font-medium text-zinc-300 hover:bg-zinc-800 transition disabled:opacity-50"
               >
-                {isSending ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Mail className="h-3.5 w-3.5" />
-                )}
-                <span>Send Email</span>
+                Close
               </button>
-            ) : (
-              <div className="flex items-center gap-2">
-                {/* If consent is needed, show small Record Consent button alongside disabled Send WhatsApp */}
-                {!currentLead.whatsappConsent && currentLead.hasPhone && !currentLead.doNotContact && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setConsentAgreed(false);
-                      setConsentEvidence('');
-                      setConsentDialogError(null);
-                      setShowRecordConsentModal(true);
-                    }}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-950/40 px-3 py-2 text-xs font-medium text-amber-200 hover:bg-amber-900/50 transition"
-                  >
-                    <FileCheck className="h-3.5 w-3.5 text-amber-300" />
-                    <span>Record Consent</span>
-                  </button>
-                )}
 
+              {activeTab === 'email' ? (
                 <button
-                  onClick={() => setShowConfirmWhatsApp(true)}
-                  disabled={isSending || currentLead.doNotContact || !isWhatsAppEligible}
-                  className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-medium text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-40 shadow-sm"
+                  onClick={() => setShowConfirmEmail(true)}
+                  disabled={isSending || currentLead.doNotContact || !currentLead.hasEmail}
+                  className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-medium text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40 shadow-sm"
                 >
                   {isSending ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   ) : (
-                    <MessageSquare className="h-3.5 w-3.5" />
+                    <Mail className="h-3.5 w-3.5" />
                   )}
-                  <span>Send WhatsApp</span>
+                  <span>Send Email</span>
                 </button>
-              </div>
-            )}
+              ) : (
+                <div className="flex items-center gap-2">
+                  {/* If consent is needed, show small Record Consent button */}
+                  {!currentLead.whatsappConsent && currentLead.hasPhone && !currentLead.doNotContact && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setConsentAgreed(false);
+                        setConsentEvidence('');
+                        setConsentDialogError(null);
+                        setShowRecordConsentModal(true);
+                      }}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-950/40 px-3 py-2 text-xs font-medium text-amber-200 hover:bg-amber-900/50 transition"
+                    >
+                      <FileCheck className="h-3.5 w-3.5 text-amber-300" />
+                      <span>Record Consent</span>
+                    </button>
+                  )}
+
+                  {/* Send via API (Automated Meta Cloud API / n8n Workflow 02) */}
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmWhatsApp(true)}
+                    disabled={isSending || currentLead.doNotContact || !isWhatsAppEligible}
+                    className="flex items-center gap-2 rounded-lg border border-zinc-700 bg-transparent px-3 py-2 text-xs font-medium text-zinc-300 transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-40"
+                    title={
+                      !currentLead.whatsappConsent
+                        ? 'Requires recorded WhatsApp consent'
+                        : 'Send automated message via Meta Cloud API'
+                    }
+                  >
+                    {isSending ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <MessageSquare className="h-3.5 w-3.5" />
+                    )}
+                    <span>Send via API</span>
+                  </button>
+
+                  {/* Open in WhatsApp (Temporary manual option) */}
+                  <button
+                    type="button"
+                    onClick={handleOpenWhatsApp}
+                    disabled={
+                      isSending ||
+                      currentLead.doNotContact ||
+                      !currentLead.phone ||
+                      !whatsappBody.trim()
+                    }
+                    className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-medium text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-40 shadow-sm"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    <span>Open in WhatsApp</span>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
+
+          {activeTab === 'whatsapp' && (
+            <div className="flex items-center justify-end">
+              <p className="text-[11px] text-zinc-400">
+                Opens WhatsApp with your message prepared. You still control the final Send.
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -731,9 +816,9 @@ export default function OutreachModal({
             onClick={() => setShowConfirmWhatsApp(false)}
           />
           <div className="relative z-10 w-full max-w-sm rounded-xl border border-[#262c45] bg-[#0e111d] p-5 shadow-2xl">
-            <h3 className="text-sm font-semibold text-white">Send this WhatsApp message now?</h3>
+            <h3 className="text-sm font-semibold text-white">Send this WhatsApp message via API now?</h3>
             <p className="mt-2 text-xs text-zinc-400 leading-relaxed">
-              This will dispatch a 1-to-1 WhatsApp message to <strong>{currentLead.businessName}</strong> ({destPhoneMasked}) and update the CRM status to Contacted.
+              This will dispatch an automated 1-to-1 WhatsApp message via Meta Cloud API to <strong>{currentLead.businessName}</strong> ({destPhoneMasked}) and update the CRM status to Contacted.
             </p>
             <div className="mt-5 flex items-center justify-end gap-2.5">
               <button
@@ -746,7 +831,7 @@ export default function OutreachModal({
                 onClick={executeSendWhatsApp}
                 className="rounded-lg bg-emerald-600 px-3.5 py-1.5 text-xs font-medium text-white hover:bg-emerald-500"
               >
-                Confirm & Send
+                Confirm & Send via API
               </button>
             </div>
           </div>
