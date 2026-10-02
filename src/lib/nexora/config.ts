@@ -78,6 +78,10 @@ export function getSendWhatsAppWebhookUrl(): string | null {
   return process.env.N8N_SEND_WHATSAPP_WEBHOOK_URL?.trim() || null;
 }
 
+export function getRecordWhatsAppConsentWebhookUrl(): string | null {
+  return process.env.N8N_RECORD_WHATSAPP_CONSENT_WEBHOOK_URL?.trim() || null;
+}
+
 /**
  * Safe error message translator for known Workflow 02 error codes
  */

@@ -180,6 +180,21 @@ export interface SendWhatsAppPayload {
   message?: string;
 }
 
+/**
+ * Record WhatsApp Consent Request & Response
+ */
+export interface RecordWhatsAppConsentRequest {
+  leadId: string;
+  consent: true;
+  evidence: string;
+}
+
+export interface RecordWhatsAppConsentResponse {
+  ok: boolean;
+  message?: string;
+  error?: string;
+}
+
 export interface SendChannelResponse {
   ok: boolean;
   sent?: boolean;

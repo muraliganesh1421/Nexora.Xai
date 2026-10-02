@@ -13,9 +13,17 @@ import {
   Loader2,
   CheckCircle2,
   Lock,
+  FileCheck,
 } from 'lucide-react';
 import { LeadItem, OutreachChannel } from '@/types/nexora';
-import { prepareOutreach, sendEmail, sendWhatsApp } from '@/lib/nexora/api';
+import {
+  prepareOutreach,
+  sendEmail,
+  sendWhatsApp,
+  recordWhatsAppConsent,
+  fetchCRMLeads,
+  rawLeadToLeadItem,
+} from '@/lib/nexora/api';
 import LeadScore from './LeadScore';
 
 interface OutreachModalProps {
@@ -41,11 +49,14 @@ function maskPhone(phone?: string): string {
 }
 
 export default function OutreachModal({
-  lead,
+  lead: initialLead,
   isOpen,
   onClose,
   onSuccessRefresh,
 }: OutreachModalProps) {
+  // Current lead tracking to handle real-time CRM updates after consent recording
+  const [currentLead, setCurrentLead] = useState<LeadItem | null>(initialLead);
+
   const [activeTab, setActiveTab] = useState<OutreachChannel>('email');
 
   // Loading draft from Workflow 02
@@ -59,9 +70,16 @@ export default function OutreachModal({
   const [destEmailMasked, setDestEmailMasked] = useState('');
   const [destPhoneMasked, setDestPhoneMasked] = useState('');
 
-  // Confirmation modals
+  // Confirmation dialogs for Send
   const [showConfirmEmail, setShowConfirmEmail] = useState(false);
   const [showConfirmWhatsApp, setShowConfirmWhatsApp] = useState(false);
+
+  // Record Consent dialog state
+  const [showRecordConsentModal, setShowRecordConsentModal] = useState(false);
+  const [consentAgreed, setConsentAgreed] = useState(false);
+  const [consentEvidence, setConsentEvidence] = useState('');
+  const [isRecordingConsent, setIsRecordingConsent] = useState(false);
+  const [consentDialogError, setConsentDialogError] = useState<string | null>(null);
 
   // Sending state
   const [isSending, setIsSending] = useState(false);
@@ -70,25 +88,31 @@ export default function OutreachModal({
     message: string;
   } | null>(null);
 
-  // Fetch prepared draft when lead changes or modal opens
+  // Sync state when initialLead changes or modal opens
   useEffect(() => {
-    if (!isOpen || !lead) {
+    if (!isOpen || !initialLead) {
+      setCurrentLead(null);
       setDraftLoaded(false);
       setStatusFeedback(null);
       setShowConfirmEmail(false);
       setShowConfirmWhatsApp(false);
+      setShowRecordConsentModal(false);
+      setConsentAgreed(false);
+      setConsentEvidence('');
       return;
     }
 
+    setCurrentLead(initialLead);
+
     // Default drafts from lead if available
-    setSubject(lead.proposedSubject || `Inquiry regarding ${lead.businessName}`);
-    setEmailBody(lead.proposedMessage || '');
-    setWhatsappBody(lead.proposedMessage || '');
-    setDestEmailMasked(maskEmail(lead.email));
-    setDestPhoneMasked(maskPhone(lead.phone));
+    setSubject(initialLead.proposedSubject || `Inquiry regarding ${initialLead.businessName}`);
+    setEmailBody(initialLead.proposedMessage || '');
+    setWhatsappBody(initialLead.proposedMessage || '');
+    setDestEmailMasked(maskEmail(initialLead.email));
+    setDestPhoneMasked(maskPhone(initialLead.phone));
 
     // Choose default active tab based on availability
-    if (!lead.hasEmail && lead.hasPhone && lead.whatsappConsent) {
+    if (!initialLead.hasEmail && initialLead.hasPhone && initialLead.whatsappConsent) {
       setActiveTab('whatsapp');
     } else {
       setActiveTab('email');
@@ -96,10 +120,10 @@ export default function OutreachModal({
 
     // Call Workflow 02 Prepare Outreach (Sends NOTHING)
     async function loadWorkflow02Draft() {
-      if (!lead) return;
+      if (!initialLead) return;
       setIsLoadingDraft(true);
       try {
-        const res = await prepareOutreach(lead.id);
+        const res = await prepareOutreach(initialLead.id);
         if (res.ok) {
           if (res.email_draft?.subject) setSubject(res.email_draft.subject);
           if (res.email_draft?.body) setEmailBody(res.email_draft.body);
@@ -109,7 +133,6 @@ export default function OutreachModal({
         }
         setDraftLoaded(true);
       } catch (err: unknown) {
-        // Fallback to existing proposed drafts from CRM record
         setDraftLoaded(true);
       } finally {
         setIsLoadingDraft(false);
@@ -117,9 +140,68 @@ export default function OutreachModal({
     }
 
     loadWorkflow02Draft();
-  }, [isOpen, lead]);
+  }, [isOpen, initialLead]);
 
-  if (!isOpen || !lead) return null;
+  if (!isOpen || !currentLead) return null;
+
+  // Handle Record WhatsApp Consent
+  const handleRecordConsent = async () => {
+    if (!consentAgreed) {
+      setConsentDialogError('You must confirm that the business explicitly agreed.');
+      return;
+    }
+    if (!consentEvidence.trim() || consentEvidence.trim().length < 5) {
+      setConsentDialogError('Please provide meaningful consent evidence (at least 5 characters).');
+      return;
+    }
+
+    setIsRecordingConsent(true);
+    setConsentDialogError(null);
+
+    try {
+      const res = await recordWhatsAppConsent({
+        leadId: currentLead.id,
+        consent: true,
+        evidence: consentEvidence.trim(),
+      });
+
+      if (res.ok) {
+        setShowRecordConsentModal(false);
+        setConsentAgreed(false);
+        setConsentEvidence('');
+        setStatusFeedback({
+          type: 'success',
+          message: 'WhatsApp consent recorded.',
+        });
+
+        // Refetch CRM leads to obtain the real updated value from Google Sheets
+        try {
+          const freshData = await fetchCRMLeads();
+          if (freshData.ok && Array.isArray(freshData.leads)) {
+            const updated = freshData.leads.find(
+              (l) => l.leadId === currentLead.id || l.leadId === initialLead?.id
+            );
+            if (updated) {
+              const normalized = rawLeadToLeadItem(updated);
+              setCurrentLead(normalized);
+            }
+          }
+        } catch {
+          // If refetch fails, do not fake consent locally
+        }
+
+        if (onSuccessRefresh) onSuccessRefresh();
+      } else {
+        setConsentDialogError(res.error || 'Failed to record WhatsApp consent.');
+      }
+    } catch (err: unknown) {
+      setConsentDialogError(
+        err instanceof Error ? err.message : 'Failed to record WhatsApp consent.'
+      );
+    } finally {
+      setIsRecordingConsent(false);
+    }
+  };
 
   // Handle Send Email
   const executeSendEmail = async () => {
@@ -129,7 +211,7 @@ export default function OutreachModal({
 
     try {
       const res = await sendEmail({
-        leadId: lead.id,
+        leadId: currentLead.id,
         confirm: 'SEND',
         subject,
         message: emailBody,
@@ -165,7 +247,7 @@ export default function OutreachModal({
 
     try {
       const res = await sendWhatsApp({
-        leadId: lead.id,
+        leadId: currentLead.id,
         confirm: 'SEND',
         message: whatsappBody,
       });
@@ -192,13 +274,18 @@ export default function OutreachModal({
     }
   };
 
+  const isWhatsAppEligible =
+    Boolean(currentLead.hasPhone) &&
+    Boolean(currentLead.whatsappConsent) &&
+    !currentLead.doNotContact;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
       <div
         className="fixed inset-0 bg-black/80 backdrop-blur-sm transition-opacity"
         onClick={() => {
-          if (!isSending) onClose();
+          if (!isSending && !isRecordingConsent) onClose();
         }}
       />
 
@@ -219,7 +306,7 @@ export default function OutreachModal({
           </div>
           <button
             onClick={onClose}
-            disabled={isSending}
+            disabled={isSending || isRecordingConsent}
             className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-white transition disabled:opacity-50"
           >
             <X className="h-5 w-5" />
@@ -231,29 +318,29 @@ export default function OutreachModal({
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-semibold text-white text-base">{lead.businessName}</span>
-                <span className="text-xs text-zinc-400">({lead.category} • {lead.city})</span>
+                <span className="font-semibold text-white text-base">{currentLead.businessName}</span>
+                <span className="text-xs text-zinc-400">({currentLead.category} • {currentLead.city})</span>
               </div>
               <div className="mt-1 flex items-center gap-2 text-xs text-zinc-400">
-                <span>Phone: {lead.phone ? destPhoneMasked : 'No phone'}</span>
+                <span>Phone: {currentLead.phone ? destPhoneMasked : 'No phone'}</span>
                 <span>•</span>
-                <span>Email: {lead.email ? destEmailMasked : 'No email'}</span>
+                <span>Email: {currentLead.email ? destEmailMasked : 'No email'}</span>
               </div>
             </div>
             <div className="w-44">
-              <LeadScore score={lead.score} size="sm" />
+              <LeadScore score={currentLead.score} size="sm" />
             </div>
           </div>
 
-          {lead.scoreReason && (
+          {currentLead.scoreReason && (
             <div className="mt-3 rounded-lg border border-[#242b45] bg-[#141829] p-3 text-xs text-zinc-300">
               <span className="font-semibold text-indigo-300">AI Scoring Rationale: </span>
-              <span>{lead.scoreReason}</span>
+              <span>{currentLead.scoreReason}</span>
             </div>
           )}
 
           {/* Do Not Contact Warning */}
-          {lead.doNotContact && (
+          {currentLead.doNotContact && (
             <div className="mt-3 flex items-center gap-2 rounded-lg border border-rose-600/40 bg-rose-950/40 p-2.5 text-xs text-rose-300 font-medium">
               <ShieldAlert className="h-4 w-4 text-rose-400 shrink-0" />
               <span>This lead is marked Do Not Contact. All outreach actions are blocked.</span>
@@ -279,7 +366,7 @@ export default function OutreachModal({
             >
               <Mail className="h-3.5 w-3.5" />
               <span>Email Channel</span>
-              {!lead.hasEmail && (
+              {!currentLead.hasEmail && (
                 <span className="rounded bg-zinc-800 px-1 py-0.2 text-[9px] text-zinc-500">Unavailable</span>
               )}
             </button>
@@ -299,8 +386,12 @@ export default function OutreachModal({
             >
               <MessageSquare className="h-3.5 w-3.5" />
               <span>WhatsApp Channel</span>
-              {!lead.whatsappConsent && (
-                <span className="rounded bg-amber-950/40 border border-amber-600/30 px-1 py-0.2 text-[9px] text-amber-300">
+              {currentLead.whatsappConsent ? (
+                <span className="rounded bg-emerald-950/40 border border-emerald-600/30 px-1 py-0.2 text-[9px] text-emerald-300 font-medium">
+                  Consent Recorded
+                </span>
+              ) : (
+                <span className="rounded bg-amber-950/40 border border-amber-600/30 px-1 py-0.2 text-[9px] text-amber-300 font-medium">
                   Consent Needed
                 </span>
               )}
@@ -330,7 +421,7 @@ export default function OutreachModal({
                   <input
                     type="text"
                     value={subject}
-                    disabled={isSending || lead.doNotContact || !lead.hasEmail}
+                    disabled={isSending || currentLead.doNotContact || !currentLead.hasEmail}
                     onChange={(e) => setSubject(e.target.value)}
                     placeholder="Enter email subject..."
                     className="w-full rounded-lg border border-[#22273d] bg-[#121626] px-3.5 py-2 text-xs text-white placeholder-zinc-500 focus:border-indigo-500 focus:outline-none disabled:opacity-50"
@@ -343,13 +434,13 @@ export default function OutreachModal({
                   <textarea
                     rows={6}
                     value={emailBody}
-                    disabled={isSending || lead.doNotContact || !lead.hasEmail}
+                    disabled={isSending || currentLead.doNotContact || !currentLead.hasEmail}
                     onChange={(e) => setEmailBody(e.target.value)}
                     placeholder="Personalized email copy..."
                     className="w-full rounded-lg border border-[#22273d] bg-[#121626] p-3 text-xs text-white placeholder-zinc-500 focus:border-indigo-500 focus:outline-none leading-relaxed disabled:opacity-50"
                   />
                 </div>
-                {!lead.hasEmail && (
+                {!currentLead.hasEmail && (
                   <p className="text-[11px] text-amber-400">
                     No verified email address exists in CRM for this lead. Email dispatch is disabled.
                   </p>
@@ -368,18 +459,48 @@ export default function OutreachModal({
                 <textarea
                   rows={6}
                   value={whatsappBody}
-                  disabled={isSending || lead.doNotContact || !lead.hasPhone || !lead.whatsappConsent}
+                  disabled={isSending || currentLead.doNotContact || !isWhatsAppEligible}
                   onChange={(e) => setWhatsappBody(e.target.value)}
                   placeholder="Personalized WhatsApp message..."
                   className="w-full rounded-lg border border-[#22273d] bg-[#121626] p-3 text-xs text-white placeholder-zinc-500 focus:border-emerald-500 focus:outline-none leading-relaxed disabled:opacity-50"
                 />
-                {!lead.whatsappConsent && (
-                  <p className="mt-1 text-[11px] text-amber-400">
-                    WhatsApp outreach requires recorded recipient consent. WhatsApp dispatch is disabled until consent is verified.
-                  </p>
+
+                {/* Consent State Banner */}
+                {currentLead.whatsappConsent ? (
+                  <div className="mt-2.5 flex items-center justify-between rounded-lg border border-emerald-500/30 bg-emerald-950/20 px-3 py-2 text-xs text-emerald-300">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                      <span>WhatsApp Consent Recorded in CRM. You can review the draft and send below.</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-lg border border-amber-500/30 bg-amber-950/20 px-3 py-2 text-xs text-amber-200">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4 text-amber-400 shrink-0" />
+                      <span>
+                        WhatsApp outreach requires recorded recipient consent. Send WhatsApp is disabled.
+                      </span>
+                    </div>
+                    {currentLead.hasPhone && !currentLead.doNotContact && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setConsentAgreed(false);
+                          setConsentEvidence('');
+                          setConsentDialogError(null);
+                          setShowRecordConsentModal(true);
+                        }}
+                        className="inline-flex items-center gap-1.5 rounded-md border border-amber-500/40 bg-amber-900/40 px-2.5 py-1 text-xs font-semibold text-amber-200 hover:bg-amber-800/60 transition shrink-0"
+                      >
+                        <FileCheck className="h-3.5 w-3.5 text-amber-300" />
+                        <span>Record Consent</span>
+                      </button>
+                    )}
+                  </div>
                 )}
-                {!lead.hasPhone && (
-                  <p className="mt-1 text-[11px] text-zinc-500">
+
+                {!currentLead.hasPhone && (
+                  <p className="mt-2 text-[11px] text-zinc-500">
                     No phone number exists in CRM for this lead.
                   </p>
                 )}
@@ -416,7 +537,7 @@ export default function OutreachModal({
           <div className="flex items-center gap-3">
             <button
               onClick={onClose}
-              disabled={isSending}
+              disabled={isSending || isRecordingConsent}
               className="rounded-lg border border-[#22273d] bg-transparent px-3.5 py-2 text-xs font-medium text-zinc-300 hover:bg-zinc-800 transition disabled:opacity-50"
             >
               Close
@@ -425,8 +546,8 @@ export default function OutreachModal({
             {activeTab === 'email' ? (
               <button
                 onClick={() => setShowConfirmEmail(true)}
-                disabled={isSending || lead.doNotContact || !lead.hasEmail}
-                className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-medium text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40"
+                disabled={isSending || currentLead.doNotContact || !currentLead.hasEmail}
+                className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-medium text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40 shadow-sm"
               >
                 {isSending ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -436,22 +557,141 @@ export default function OutreachModal({
                 <span>Send Email</span>
               </button>
             ) : (
-              <button
-                onClick={() => setShowConfirmWhatsApp(true)}
-                disabled={isSending || lead.doNotContact || !lead.hasPhone || !lead.whatsappConsent}
-                className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-medium text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                {isSending ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <MessageSquare className="h-3.5 w-3.5" />
+              <div className="flex items-center gap-2">
+                {/* If consent is needed, show small Record Consent button alongside disabled Send WhatsApp */}
+                {!currentLead.whatsappConsent && currentLead.hasPhone && !currentLead.doNotContact && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setConsentAgreed(false);
+                      setConsentEvidence('');
+                      setConsentDialogError(null);
+                      setShowRecordConsentModal(true);
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-950/40 px-3 py-2 text-xs font-medium text-amber-200 hover:bg-amber-900/50 transition"
+                  >
+                    <FileCheck className="h-3.5 w-3.5 text-amber-300" />
+                    <span>Record Consent</span>
+                  </button>
                 )}
-                <span>Send WhatsApp</span>
-              </button>
+
+                <button
+                  onClick={() => setShowConfirmWhatsApp(true)}
+                  disabled={isSending || currentLead.doNotContact || !isWhatsAppEligible}
+                  className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-medium text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-40 shadow-sm"
+                >
+                  {isSending ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <MessageSquare className="h-3.5 w-3.5" />
+                  )}
+                  <span>Send WhatsApp</span>
+                </button>
+              </div>
             )}
           </div>
         </div>
       </div>
+
+      {/* RECORD WHATSAPP CONSENT DIALOG */}
+      {showRecordConsentModal && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4">
+          <div
+            className="fixed inset-0 bg-black/70 backdrop-blur-sm"
+            onClick={() => {
+              if (!isRecordingConsent) setShowRecordConsentModal(false);
+            }}
+          />
+          <div className="relative z-10 w-full max-w-md rounded-xl border border-[#2d344d] bg-[#0e111d] p-6 shadow-2xl">
+            <div className="flex items-center gap-2.5 mb-3">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                <FileCheck className="h-4 w-4" />
+              </div>
+              <h3 className="text-sm font-semibold text-white">Record WhatsApp Consent</h3>
+            </div>
+
+            <p className="text-xs text-zinc-300 leading-relaxed">
+              Only record consent if this business explicitly agreed to receive WhatsApp messages.
+            </p>
+
+            <div className="mt-4 space-y-3.5">
+              {/* Checkbox: Not pre-checked */}
+              <label className="flex items-start gap-2.5 cursor-pointer rounded-lg border border-[#23293e] bg-[#121626] p-3 transition hover:border-[#2e3552]">
+                <input
+                  type="checkbox"
+                  checked={consentAgreed}
+                  disabled={isRecordingConsent}
+                  onChange={(e) => {
+                    setConsentAgreed(e.target.checked);
+                    if (consentDialogError) setConsentDialogError(null);
+                  }}
+                  className="mt-0.5 h-4 w-4 rounded border-zinc-700 bg-zinc-900 text-emerald-600 focus:ring-0 cursor-pointer"
+                />
+                <span className="text-xs text-zinc-200 leading-snug">
+                  The business explicitly agreed to receive WhatsApp messages.
+                </span>
+              </label>
+
+              {/* Consent Evidence: Textarea */}
+              <div>
+                <label className="block text-xs font-medium text-zinc-300 mb-1">
+                  Consent Evidence <span className="text-rose-400">*</span>
+                </label>
+                <textarea
+                  rows={3}
+                  value={consentEvidence}
+                  disabled={isRecordingConsent}
+                  onChange={(e) => {
+                    setConsentEvidence(e.target.value);
+                    if (consentDialogError) setConsentDialogError(null);
+                  }}
+                  placeholder="Customer agreed during phone call on 2 Oct 2026"
+                  className="w-full rounded-lg border border-[#22273d] bg-[#121626] p-2.5 text-xs text-white placeholder-zinc-500 focus:border-amber-500 focus:outline-none leading-relaxed"
+                />
+                <span className="text-[10px] text-zinc-500">
+                  Document when, where, and how consent was granted. Never automatically generated.
+                </span>
+              </div>
+
+              {consentDialogError && (
+                <div className="flex items-center gap-1.5 text-xs text-rose-400">
+                  <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                  <span>{consentDialogError}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-6 flex items-center justify-end gap-2.5 border-t border-[#1c2236] pt-4">
+              <button
+                type="button"
+                onClick={() => setShowRecordConsentModal(false)}
+                disabled={isRecordingConsent}
+                className="rounded-lg border border-zinc-700 bg-transparent px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-800 transition disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleRecordConsent}
+                disabled={isRecordingConsent || !consentAgreed || !consentEvidence.trim()}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-1.5 text-xs font-medium text-white hover:bg-emerald-500 transition disabled:cursor-not-allowed disabled:opacity-40 shadow-sm"
+              >
+                {isRecordingConsent ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <span>Recording...</span>
+                  </>
+                ) : (
+                  <>
+                    <FileCheck className="h-3.5 w-3.5" />
+                    <span>Record WhatsApp Consent</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* CONFIRMATION DIALOG: Send Email */}
       {showConfirmEmail && (
@@ -463,7 +703,7 @@ export default function OutreachModal({
           <div className="relative z-10 w-full max-w-sm rounded-xl border border-[#262c45] bg-[#0e111d] p-5 shadow-2xl">
             <h3 className="text-sm font-semibold text-white">Send this email now?</h3>
             <p className="mt-2 text-xs text-zinc-400 leading-relaxed">
-              This will dispatch a personalized cold outreach email to <strong>{lead.businessName}</strong> ({destEmailMasked}) and update the CRM status to Contacted.
+              This will dispatch a personalized cold outreach email to <strong>{currentLead.businessName}</strong> ({destEmailMasked}) and update the CRM status to Contacted.
             </p>
             <div className="mt-5 flex items-center justify-end gap-2.5">
               <button
@@ -493,7 +733,7 @@ export default function OutreachModal({
           <div className="relative z-10 w-full max-w-sm rounded-xl border border-[#262c45] bg-[#0e111d] p-5 shadow-2xl">
             <h3 className="text-sm font-semibold text-white">Send this WhatsApp message now?</h3>
             <p className="mt-2 text-xs text-zinc-400 leading-relaxed">
-              This will dispatch a 1-to-1 WhatsApp message to <strong>{lead.businessName}</strong> ({destPhoneMasked}) and update the CRM status to Contacted.
+              This will dispatch a 1-to-1 WhatsApp message to <strong>{currentLead.businessName}</strong> ({destPhoneMasked}) and update the CRM status to Contacted.
             </p>
             <div className="mt-5 flex items-center justify-end gap-2.5">
               <button

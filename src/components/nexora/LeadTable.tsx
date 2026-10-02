@@ -106,7 +106,7 @@ export default function LeadTable({ leads, onPrepareOutreach }: LeadTableProps) 
                       }`}
                     >
                       <MessageSquare className="h-3 w-3" />
-                      <span>{lead.hasPhone ? 'WhatsApp' : 'No WA'}</span>
+                      <span>{lead.hasPhone ? (lead.whatsappConsent ? 'Consent Recorded' : 'Consent Needed') : 'No WA'}</span>
                     </span>
                   </div>
                 </td>

@@ -100,8 +100,8 @@ export default function LeadCard({ lead, onPrepareOutreach }: LeadCardProps) {
             <span>
               {lead.hasPhone
                 ? lead.whatsappConsent
-                  ? 'WhatsApp Consented'
-                  : 'WhatsApp (No Consent)'
+                  ? 'Consent Recorded'
+                  : 'Consent Needed'
                 : 'No Phone'}
             </span>
           </div>

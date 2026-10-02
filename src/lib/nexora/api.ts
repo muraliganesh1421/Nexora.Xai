@@ -13,6 +13,8 @@ import {
   PrepareOutreachResponse,
   SendEmailPayload,
   SendWhatsAppPayload,
+  RecordWhatsAppConsentRequest,
+  RecordWhatsAppConsentResponse,
   SendChannelResponse,
   SystemStatusState,
   ScoreTier,
@@ -132,6 +134,30 @@ export async function sendWhatsApp(payload: SendWhatsAppPayload): Promise<SendCh
   }
 
   return data as SendChannelResponse;
+}
+
+/**
+ * Record WhatsApp Consent in Google Sheets CRM via Workflow
+ * Requires explicit consent=true and evidence string.
+ */
+export async function recordWhatsAppConsent(
+  payload: RecordWhatsAppConsentRequest
+): Promise<RecordWhatsAppConsentResponse> {
+  const res = await fetch('/api/nexora/record-whatsapp-consent', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await res.json().catch(() => null);
+
+  if (!res.ok) {
+    throw new Error(data?.error || 'Failed to record WhatsApp consent.');
+  }
+
+  return data as RecordWhatsAppConsentResponse;
 }
 
 /**
