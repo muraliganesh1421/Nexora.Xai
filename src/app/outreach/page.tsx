@@ -73,7 +73,7 @@ function OutreachContent() {
   );
 
   return (
-    <div className="flex min-h-screen bg-[#08090d]">
+    <div className="flex min-h-screen bg-[#030305]">
       <Sidebar
         mobileOpen={mobileOpen}
         onCloseMobile={() => setMobileOpen(false)}
@@ -90,59 +90,59 @@ function OutreachContent() {
 
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-5xl w-full mx-auto space-y-6">
           {/* Philosophy Banner */}
-          <div className="rounded-xl border border-indigo-500/20 bg-indigo-950/20 p-5">
+          <div className="rounded-xl border border-white/[0.08] bg-[#07070b] p-5">
             <div className="flex items-center gap-2 mb-2">
               <ShieldCheck className="h-4 w-4 text-emerald-400" />
-              <span className="text-xs font-semibold uppercase tracking-wider text-emerald-400">
-                Mandatory Human Review Guardrail
+              <span className="text-xs font-mono uppercase tracking-wider text-emerald-400">
+                Mandatory Founder Review Guardrail
               </span>
             </div>
-            <h2 className="text-lg font-bold text-white">
+            <h2 className="text-base font-bold text-white font-mono">
               FIND → AI SCORE → REVIEW → CONTACT
             </h2>
-            <p className="mt-1.5 text-xs text-zinc-300 leading-relaxed">
+            <p className="mt-1.5 text-xs text-zinc-400 leading-relaxed">
               Every draft is personalized by AI and stored in your CRM. Dispatching an Email or WhatsApp message requires explicit human confirmation (confirm=&ldquo;SEND&rdquo;). Bulk sending and automated outreach are strictly prevented.
             </p>
           </div>
 
           {/* Quick Metrics */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="rounded-xl border border-[#1e2334] bg-[#0e111a] p-4">
-              <div className="flex items-center justify-between text-xs text-zinc-400 mb-1">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+            <div className="rounded-xl border border-white/[0.08] bg-[#07070b] p-4">
+              <div className="flex items-center justify-between text-xs text-zinc-400 mb-1 font-mono">
                 <span>Pending Review</span>
                 <Clock className="h-4 w-4 text-amber-400" />
               </div>
               <div className="text-2xl font-bold font-mono text-white">
                 {isLoading ? '...' : readyForReviewLeads.length}
               </div>
-              <span className="text-[11px] text-zinc-500">Awaiting founder dispatch</span>
+              <span className="text-[11px] text-zinc-500 font-mono">Awaiting founder dispatch</span>
             </div>
 
-            <div className="rounded-xl border border-[#1e2334] bg-[#0e111a] p-4">
-              <div className="flex items-center justify-between text-xs text-zinc-400 mb-1">
+            <div className="rounded-xl border border-white/[0.08] bg-[#07070b] p-4">
+              <div className="flex items-center justify-between text-xs text-zinc-400 mb-1 font-mono">
                 <span>Contacted</span>
                 <CheckCircle2 className="h-4 w-4 text-emerald-400" />
               </div>
               <div className="text-2xl font-bold font-mono text-white">
                 {isLoading ? '...' : contactedLeads.length}
               </div>
-              <span className="text-[11px] text-zinc-500">Live CRM contacted status</span>
+              <span className="text-[11px] text-zinc-500 font-mono">Live CRM contacted status</span>
             </div>
 
-            <div className="rounded-xl border border-[#1e2334] bg-[#0e111a] p-4">
-              <div className="flex items-center justify-between text-xs text-zinc-400 mb-1">
+            <div className="rounded-xl border border-white/[0.08] bg-[#07070b] p-4">
+              <div className="flex items-center justify-between text-xs text-zinc-400 mb-1 font-mono">
                 <span>Total Live CRM Leads</span>
-                <Database className="h-4 w-4 text-indigo-400" />
+                <Database className="h-4 w-4 text-zinc-400" />
               </div>
               <div className="text-2xl font-bold font-mono text-white">
                 {isLoading ? '...' : leads.length}
               </div>
-              <span className="text-[11px] text-zinc-500">Syncs via Workflow 03</span>
+              <span className="text-[11px] text-zinc-500 font-mono">Syncs via Workflow 03</span>
             </div>
           </div>
 
           {/* Leads Ready for Review */}
-          <div className="rounded-xl border border-[#1e2334] bg-[#0e111a] p-6 space-y-4">
+          <div className="rounded-xl border border-white/[0.08] bg-[#07070b] p-5 sm:p-6 space-y-4">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-semibold uppercase tracking-wider text-white">
@@ -154,7 +154,7 @@ function OutreachContent() {
               </div>
               <Link
                 href="/leads"
-                className="text-xs text-indigo-400 hover:text-indigo-300 font-medium"
+                className="text-xs text-zinc-300 hover:text-white font-medium"
               >
                 View all in Leads →
               </Link>
@@ -162,7 +162,7 @@ function OutreachContent() {
 
             {isLoading && (
               <div className="flex py-12 items-center justify-center gap-2 text-xs text-zinc-400">
-                <Loader2 className="h-4 w-4 animate-spin text-indigo-400" />
+                <Loader2 className="h-4 w-4 animate-spin text-white" />
                 <span>Loading leads from CRM...</span>
               </div>
             )}
@@ -174,9 +174,9 @@ function OutreachContent() {
             )}
 
             {!isLoading && !error && readyForReviewLeads.length === 0 && (
-              <div className="rounded-lg border border-dashed border-[#22273d] bg-[#101322] p-6 text-center text-xs text-zinc-400">
+              <div className="rounded-lg border border-dashed border-white/[0.08] bg-[#0c0c12] p-6 text-center text-xs text-zinc-400">
                 No leads currently pending review. Run a search in{' '}
-                <Link href="/find" className="text-indigo-400 underline">
+                <Link href="/find" className="text-white underline">
                   Find Leads
                 </Link>{' '}
                 to discover fresh opportunities.
@@ -184,22 +184,22 @@ function OutreachContent() {
             )}
 
             {!isLoading && !error && readyForReviewLeads.length > 0 && (
-              <div className="divide-y divide-[#1a1f30]">
+              <div className="divide-y divide-white/[0.06]">
                 {readyForReviewLeads.slice(0, 10).map((lead) => (
                   <div
                     key={lead.id}
-                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-3.5 transition hover:bg-[#121626] rounded-lg px-3"
+                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-3.5 transition hover:bg-white/[0.03] rounded-lg px-3"
                   >
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="font-semibold text-white text-sm">
                           {lead.businessName}
                         </span>
-                        <span className="text-xs text-zinc-400">
+                        <span className="text-xs text-zinc-400 font-mono">
                           ({lead.category} • {lead.city})
                         </span>
                       </div>
-                      <div className="mt-1 flex items-center gap-3 text-[11px] text-zinc-400">
+                      <div className="mt-1 flex items-center gap-3 text-[11px] text-zinc-500 font-mono">
                         <span>Email: {lead.hasEmail ? 'Available' : 'Unavailable'}</span>
                         <span>•</span>
                         <span>
@@ -217,7 +217,7 @@ function OutreachContent() {
                       <LeadScore score={lead.score} size="sm" />
                       <button
                         onClick={() => setSelectedLead(lead)}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-500 transition shadow-sm"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.06] px-3.5 py-1.5 text-xs font-medium text-white hover:bg-white/15 transition shadow-sm"
                       >
                         <Send className="h-3 w-3" />
                         <span>Prepare Outreach</span>

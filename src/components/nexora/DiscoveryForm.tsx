@@ -20,12 +20,12 @@ import {
 import { DiscoveryRequest, DiscoveryResponse } from '@/types/nexora';
 import { discoverLeads } from '@/lib/nexora/api';
 
-const QUICK_CATEGORIES = [
-  'Restaurants',
-  'Bakeries',
-  'Gyms',
-  'Clinics',
-  'Furniture Stores',
+const QUICK_PRESETS = [
+  { label: 'Restaurants in Rajahmundry', category: 'Restaurant', city: 'Rajahmundry', country: 'India' },
+  { label: 'Bakeries in Rajahmundry', category: 'Bakery', city: 'Rajahmundry', country: 'India' },
+  { label: 'Gyms in Kakinada', category: 'Gym', city: 'Kakinada', country: 'India' },
+  { label: 'Clinics in Visakhapatnam', category: 'Clinic', city: 'Visakhapatnam', country: 'India' },
+  { label: 'Real Estate in Hyderabad', category: 'Real Estate', city: 'Hyderabad', country: 'India' },
 ];
 
 interface DiscoveryFormProps {
@@ -49,10 +49,10 @@ export default function DiscoveryForm({ onSuccess }: DiscoveryFormProps) {
 
   // Loading stages simulation for visual UX
   const loadingStages = [
-    'Searching businesses...',
-    'Removing duplicates against CRM...',
+    'Searching businesses via OSM nodes...',
+    'Removing duplicates against Google Sheets CRM...',
     'Running AI qualification & scoring...',
-    'Saving qualified records to CRM...',
+    'Appending qualified records to CRM...',
   ];
 
   const validate = (): boolean => {
@@ -123,51 +123,81 @@ export default function DiscoveryForm({ onSuccess }: DiscoveryFormProps) {
     setLoadingStep(0);
   };
 
+  const applyPreset = (preset: typeof QUICK_PRESETS[0]) => {
+    setCategory(preset.category);
+    setCity(preset.city);
+    setCountry(preset.country);
+    setValidationErrors({});
+  };
+
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-[#1e2334] bg-[#0e111a] p-6 sm:p-8">
-      {/* Background Tech Glow */}
-      <div className="pointer-events-none absolute -top-24 -right-24 h-64 w-64 rounded-full bg-indigo-500/10 blur-3xl" />
-      <div className="pointer-events-none absolute -bottom-24 -left-24 h-64 w-64 rounded-full bg-cyan-500/10 blur-3xl" />
+    <div className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-[#07070b] p-6 sm:p-8">
+      {/* Background Cosmic Atmosphere */}
+      <div className="pointer-events-none absolute -top-24 -right-24 h-64 w-64 rounded-full bg-indigo-500/[0.05] blur-3xl" />
 
       {/* Header */}
-      <div className="relative z-10 mb-8">
+      <div className="relative z-10 mb-6">
         <div className="flex items-center gap-2 mb-2">
-          <span className="flex h-6 w-6 items-center justify-center rounded-md bg-indigo-500/20 text-indigo-400">
+          <span className="flex h-6 w-6 items-center justify-center rounded-md bg-white/[0.06] text-zinc-300 border border-white/10">
             <Sparkles className="h-3.5 w-3.5" />
           </span>
-          <span className="text-xs font-semibold uppercase tracking-wider text-indigo-400">
+          <span className="text-xs font-mono uppercase tracking-wider text-zinc-400">
             Automated Prospect Discovery
           </span>
         </div>
-        <h2 className="text-xl sm:text-2xl font-semibold tracking-tight text-white">
+        <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
           Find Businesses
         </h2>
         <p className="mt-1 text-xs sm:text-sm text-zinc-400">
-          Discover businesses and let AI identify the strongest opportunities.
+          Discover businesses and let AI qualify the highest potential opportunities.
         </p>
+
+        {/* 1-Click Fast Presets */}
+        <div className="mt-4 pt-4 border-t border-white/[0.06]">
+          <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 block mb-2">
+            1-Click Search Presets:
+          </span>
+          <div className="flex flex-wrap gap-2">
+            {QUICK_PRESETS.map((p) => (
+              <button
+                type="button"
+                key={p.label}
+                disabled={isLoading}
+                onClick={() => applyPreset(p)}
+                className={`rounded-lg border px-2.5 py-1 text-xs font-medium transition ${
+                  category.toLowerCase() === p.category.toLowerCase() && city.toLowerCase() === p.city.toLowerCase()
+                    ? 'border-white/30 bg-white/10 text-white'
+                    : 'border-white/[0.08] bg-[#0c0c12] text-zinc-400 hover:border-white/20 hover:text-zinc-200'
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* SUCCESS STATE */}
       {result && (
-        <div className="relative z-10 rounded-xl border border-[#22283e] bg-[#101322] p-6 text-center">
+        <div className="relative z-10 rounded-xl border border-white/[0.08] bg-[#0b0b12] p-6 text-center">
           {result.processed > 0 ? (
             <>
-              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-emerald-500/30 bg-emerald-950/40 text-emerald-400 shadow-[0_0_20px_rgba(52,211,153,0.2)]">
+              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-emerald-500/30 bg-emerald-950/40 text-emerald-400">
                 <CheckCircle2 className="h-6 w-6" />
               </div>
-              <h3 className="text-lg font-semibold text-white">
-                Discovery complete
+              <h3 className="text-lg font-bold text-white">
+                Discovery Complete
               </h3>
               <p className="mt-1 text-sm font-medium text-emerald-400">
-                {result.processed} {result.processed === 1 ? 'lead' : 'leads'} processed
+                {result.processed} {result.processed === 1 ? 'lead' : 'leads'} processed & qualified
               </p>
-              <p className="mt-2 text-xs text-zinc-300 max-w-md mx-auto leading-relaxed">
-                Qualified businesses have been saved to your CRM and are pending review.
+              <p className="mt-2 text-xs text-zinc-400 max-w-md mx-auto leading-relaxed">
+                Qualified businesses have been added to your Google Sheets CRM and are ready for founder review.
               </p>
             </>
           ) : (
             <>
-              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-zinc-700 bg-zinc-800/40 text-zinc-300">
+              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-zinc-300">
                 <Info className="h-6 w-6" />
               </div>
               <h3 className="text-lg font-semibold text-white">
@@ -177,13 +207,13 @@ export default function DiscoveryForm({ onSuccess }: DiscoveryFormProps) {
                 No new leads were added.
               </p>
               <p className="mt-2 text-xs text-zinc-400 max-w-md mx-auto leading-relaxed">
-                Some businesses may already exist in your CRM or may not have met the discovery conditions.
+                Some businesses may already exist in your CRM or may not have met the score threshold.
               </p>
             </>
           )}
 
           {result.isDemo && (
-            <div className="mt-3 inline-block rounded border border-amber-500/30 bg-amber-950/20 px-2 py-0.5 text-[10px] text-amber-300">
+            <div className="mt-3 inline-block rounded border border-amber-500/30 bg-amber-950/20 px-2 py-0.5 text-[10px] text-amber-300 font-mono">
               DEMO MODE EXECUTION
             </div>
           )}
@@ -192,22 +222,22 @@ export default function DiscoveryForm({ onSuccess }: DiscoveryFormProps) {
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
             <Link
               href="/leads"
-              className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-medium text-white transition hover:bg-indigo-500"
+              className="inline-flex items-center gap-2 rounded-lg bg-white px-5 py-2 text-xs font-semibold text-black transition hover:bg-zinc-200"
             >
-              <span>View Leads</span>
+              <span>View Leads in CRM</span>
               <ArrowRight className="h-3.5 w-3.5" />
             </Link>
             <button
               onClick={handleReset}
-              className="inline-flex items-center gap-2 rounded-lg border border-[#2a314d] bg-[#161a2c] px-4 py-2 text-xs font-medium text-zinc-300 transition hover:bg-[#1f253e]"
+              className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-[#12121c] px-4 py-2 text-xs font-medium text-zinc-300 transition hover:bg-white/[0.08]"
             >
               <RefreshCw className="h-3.5 w-3.5" />
               <span>Run Another Search</span>
             </button>
           </div>
 
-          <div className="mt-4 text-[11px] text-zinc-500">
-            Note: CRM lead reading will sync in the Leads dashboard once the read API is connected.
+          <div className="mt-4 text-[11px] text-zinc-500 font-mono">
+            Records are appended to your connected Google Sheets CRM table.
           </div>
         </div>
       )}
@@ -240,37 +270,6 @@ export default function DiscoveryForm({ onSuccess }: DiscoveryFormProps) {
       {/* FORM INPUTS */}
       {!result && (
         <form onSubmit={handleSubmit} className="relative z-10 space-y-6">
-          {/* Quick Categories */}
-          <div>
-            <label className="block text-xs font-medium text-zinc-400 mb-2">
-              Popular Industries
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {QUICK_CATEGORIES.map((cat) => (
-                <button
-                  type="button"
-                  key={cat}
-                  disabled={isLoading}
-                  onClick={() => {
-                    // strip plural for clean query
-                    const cleanCat = cat.replace(/s$/, '');
-                    setCategory(cleanCat);
-                    if (validationErrors.category) {
-                      setValidationErrors((prev) => ({ ...prev, category: '' }));
-                    }
-                  }}
-                  className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
-                    category.toLowerCase() === cat.replace(/s$/, '').toLowerCase()
-                      ? 'border-indigo-500 bg-indigo-600/20 text-indigo-300'
-                      : 'border-[#22273d] bg-[#121626] text-zinc-400 hover:border-[#2e3552] hover:text-zinc-200'
-                  }`}
-                >
-                  {cat}
-                </button>
-              ))}
-            </div>
-          </div>
-
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {/* Category Field */}
             <div className="sm:col-span-2">
@@ -292,10 +291,10 @@ export default function DiscoveryForm({ onSuccess }: DiscoveryFormProps) {
                     }
                   }}
                   placeholder="Restaurant, Bakery, Gym, Clinic, Furniture Store"
-                  className={`w-full rounded-xl border bg-[#121626] py-2.5 pl-10 pr-4 text-xs text-white placeholder-zinc-500 focus:outline-none transition ${
+                  className={`w-full rounded-xl border bg-[#0c0c12] py-2.5 pl-10 pr-4 text-xs text-white placeholder-zinc-500 focus:outline-none transition ${
                     validationErrors.category
                       ? 'border-rose-500 focus:border-rose-400'
-                      : 'border-[#22273d] focus:border-indigo-500'
+                      : 'border-white/[0.08] focus:border-white/30'
                   }`}
                 />
               </div>
@@ -326,10 +325,10 @@ export default function DiscoveryForm({ onSuccess }: DiscoveryFormProps) {
                     }
                   }}
                   placeholder="e.g. Rajahmundry"
-                  className={`w-full rounded-xl border bg-[#121626] py-2.5 pl-10 pr-4 text-xs text-white placeholder-zinc-500 focus:outline-none transition ${
+                  className={`w-full rounded-xl border bg-[#0c0c12] py-2.5 pl-10 pr-4 text-xs text-white placeholder-zinc-500 focus:outline-none transition ${
                     validationErrors.city
                       ? 'border-rose-500 focus:border-rose-400'
-                      : 'border-[#22273d] focus:border-indigo-500'
+                      : 'border-white/[0.08] focus:border-white/30'
                   }`}
                 />
               </div>
@@ -360,10 +359,10 @@ export default function DiscoveryForm({ onSuccess }: DiscoveryFormProps) {
                     }
                   }}
                   placeholder="e.g. India"
-                  className={`w-full rounded-xl border bg-[#121626] py-2.5 pl-10 pr-4 text-xs text-white placeholder-zinc-500 focus:outline-none transition ${
+                  className={`w-full rounded-xl border bg-[#0c0c12] py-2.5 pl-10 pr-4 text-xs text-white placeholder-zinc-500 focus:outline-none transition ${
                     validationErrors.country
                       ? 'border-rose-500 focus:border-rose-400'
-                      : 'border-[#22273d] focus:border-indigo-500'
+                      : 'border-white/[0.08] focus:border-white/30'
                   }`}
                 />
               </div>
@@ -380,7 +379,7 @@ export default function DiscoveryForm({ onSuccess }: DiscoveryFormProps) {
                 <label className="text-xs font-medium text-zinc-300">
                   Number of Leads (1–20)
                 </label>
-                <span className="font-mono text-xs font-semibold text-indigo-400">
+                <span className="font-mono text-xs font-semibold text-zinc-200">
                   {maxResults}
                 </span>
               </div>
@@ -392,9 +391,9 @@ export default function DiscoveryForm({ onSuccess }: DiscoveryFormProps) {
                 value={maxResults}
                 disabled={isLoading}
                 onChange={(e) => setMaxResults(parseInt(e.target.value, 10))}
-                className="w-full accent-indigo-500 cursor-pointer"
+                className="w-full accent-white cursor-pointer"
               />
-              <div className="flex justify-between text-[10px] text-zinc-500 mt-1">
+              <div className="flex justify-between text-[10px] text-zinc-500 mt-1 font-mono">
                 <span>1</span>
                 <span>Default: 5</span>
                 <span>20</span>
@@ -407,7 +406,7 @@ export default function DiscoveryForm({ onSuccess }: DiscoveryFormProps) {
                 <label className="text-xs font-medium text-zinc-300">
                   Minimum AI Score (0–100)
                 </label>
-                <span className="font-mono text-xs font-semibold text-cyan-400">
+                <span className="font-mono text-xs font-semibold text-zinc-200">
                   {minScore}
                 </span>
               </div>
@@ -419,9 +418,9 @@ export default function DiscoveryForm({ onSuccess }: DiscoveryFormProps) {
                 value={minScore}
                 disabled={isLoading}
                 onChange={(e) => setMinScore(parseInt(e.target.value, 10))}
-                className="w-full accent-cyan-500 cursor-pointer"
+                className="w-full accent-white cursor-pointer"
               />
-              <div className="flex justify-between text-[10px] text-zinc-500 mt-1">
+              <div className="flex justify-between text-[10px] text-zinc-500 mt-1 font-mono">
                 <span>0</span>
                 <span>Default: 55</span>
                 <span>100</span>
@@ -431,9 +430,9 @@ export default function DiscoveryForm({ onSuccess }: DiscoveryFormProps) {
 
           {/* VISUAL LOADING PROGRESS REPRESENTATION */}
           {isLoading && (
-            <div className="rounded-xl border border-indigo-500/30 bg-indigo-950/20 p-5">
+            <div className="rounded-xl border border-white/[0.08] bg-[#0c0c12] p-5">
               <div className="flex items-center gap-3 mb-3">
-                <Loader2 className="h-5 w-5 animate-spin text-indigo-400" />
+                <Loader2 className="h-5 w-5 animate-spin text-white" />
                 <span className="text-xs font-semibold text-white">
                   Executing Nexora Workflow 01
                 </span>
@@ -451,7 +450,7 @@ export default function DiscoveryForm({ onSuccess }: DiscoveryFormProps) {
                         isDone
                           ? 'text-emerald-400 font-medium'
                           : isCurrent
-                          ? 'text-indigo-300 font-semibold'
+                          ? 'text-white font-semibold'
                           : 'text-zinc-600'
                       }`}
                     >
@@ -460,7 +459,7 @@ export default function DiscoveryForm({ onSuccess }: DiscoveryFormProps) {
                           isDone
                             ? 'bg-emerald-400'
                             : isCurrent
-                            ? 'bg-indigo-400 animate-ping'
+                            ? 'bg-white animate-ping'
                             : 'bg-zinc-800'
                         }`}
                       />
@@ -470,31 +469,31 @@ export default function DiscoveryForm({ onSuccess }: DiscoveryFormProps) {
                 })}
               </div>
 
-              <p className="mt-3 text-[10px] text-zinc-500 border-t border-indigo-900/40 pt-2">
-                Visual progress representation while discovery runs. (Not real-time workflow telemetry)
+              <p className="mt-3 text-[10px] text-zinc-500 border-t border-white/[0.06] pt-2 font-mono">
+                Visual progress indicator while n8n queries OSM, deduplicates, AI-qualifies, and writes to CRM.
               </p>
             </div>
           )}
 
           {/* Primary Action Button */}
           <div className="flex items-center justify-between pt-2">
-            <div className="text-[11px] text-zinc-500 hidden sm:block">
+            <div className="text-[11px] text-zinc-500 font-mono hidden sm:block">
               POST /api/nexora/discover → n8n Lead Intelligence
             </div>
 
             <button
               type="submit"
               disabled={isLoading}
-              className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-600 px-6 py-3 text-xs font-semibold text-white shadow-lg shadow-indigo-500/20 transition hover:from-indigo-500 hover:to-cyan-500 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl bg-white px-6 py-3 text-xs font-semibold text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-50 shadow-sm"
             >
               {isLoading ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="h-4 w-4 animate-spin text-black" />
                   <span>Discovering Leads...</span>
                 </>
               ) : (
                 <>
-                  <Search className="h-4 w-4" />
+                  <Search className="h-4 w-4 text-black" />
                   <span>Find Leads</span>
                 </>
               )}

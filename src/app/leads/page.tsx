@@ -81,7 +81,7 @@ export default function LeadsPage() {
   });
 
   return (
-    <div className="flex min-h-screen bg-[#08090d]">
+    <div className="flex min-h-screen bg-[#030305]">
       <Sidebar
         mobileOpen={mobileOpen}
         onCloseMobile={() => setMobileOpen(false)}
@@ -90,13 +90,13 @@ export default function LeadsPage() {
 
       <div className="flex flex-1 flex-col overflow-y-auto min-w-0">
         <Topbar
-          title="Leads Intelligence"
+          title="Leads Intelligence CRM"
           description="Live prospective businesses scored and managed in your Google Sheets CRM"
           onOpenMobile={() => setMobileOpen(true)}
           isLiveMode={true}
         />
 
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto space-y-6">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto space-y-5">
           {/* Header Controls */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
@@ -105,8 +105,8 @@ export default function LeadsPage() {
                   CRM Lead Records
                 </h2>
                 {!isLoading && (
-                  <span className="rounded-full bg-indigo-500/20 border border-indigo-500/30 px-2 py-0.5 text-xs font-mono text-indigo-300">
-                    {leads.length} live
+                  <span className="rounded-full bg-white/[0.06] border border-white/10 px-2 py-0.5 text-xs font-mono text-zinc-300">
+                    {leads.length} live records
                   </span>
                 )}
               </div>
@@ -120,19 +120,19 @@ export default function LeadsPage() {
               <button
                 onClick={loadLeads}
                 disabled={isLoading}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-[#22273d] bg-[#121626] px-3 py-1.5 text-xs font-medium text-zinc-300 hover:text-white transition disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-[#0c0c12] px-3 py-1.5 text-xs font-medium text-zinc-300 hover:text-white transition disabled:opacity-50"
               >
                 <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? 'animate-spin' : ''}`} />
                 <span>Refresh CRM</span>
               </button>
 
               {/* View Switcher */}
-              <div className="flex items-center rounded-lg border border-[#22273d] bg-[#121626] p-0.5">
+              <div className="flex items-center rounded-lg border border-white/10 bg-[#0c0c12] p-0.5">
                 <button
                   onClick={() => setViewMode('table')}
                   className={`rounded-md p-1.5 text-xs transition ${
                     viewMode === 'table'
-                      ? 'bg-zinc-800 text-white'
+                      ? 'bg-white/15 text-white'
                       : 'text-zinc-400 hover:text-white'
                   }`}
                   title="Table View"
@@ -143,7 +143,7 @@ export default function LeadsPage() {
                   onClick={() => setViewMode('cards')}
                   className={`rounded-md p-1.5 text-xs transition ${
                     viewMode === 'cards'
-                      ? 'bg-zinc-800 text-white'
+                      ? 'bg-white/15 text-white'
                       : 'text-zinc-400 hover:text-white'
                   }`}
                   title="Card Grid View"
@@ -155,7 +155,7 @@ export default function LeadsPage() {
               {/* Find Leads Action */}
               <Link
                 href="/find"
-                className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-1.5 text-xs font-medium text-white hover:bg-indigo-500 transition shadow-sm"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-white px-3.5 py-1.5 text-xs font-semibold text-black hover:bg-zinc-200 transition shadow-sm"
               >
                 <Search className="h-3.5 w-3.5" />
                 <span>Find More Leads</span>
@@ -163,9 +163,9 @@ export default function LeadsPage() {
             </div>
           </div>
 
-          {/* Search & Filter Bar */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 rounded-xl border border-[#1e2334] bg-[#0c0e18] p-3">
-            <div className="relative w-full sm:w-80">
+          {/* Search & Quick Filter Bar */}
+          <div className="flex flex-col md:flex-row items-center justify-between gap-3 rounded-xl border border-white/[0.08] bg-[#07070b] p-3">
+            <div className="relative w-full md:w-80">
               <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-zinc-500">
                 <Search className="h-3.5 w-3.5" />
               </div>
@@ -173,32 +173,38 @@ export default function LeadsPage() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search business, category, or city..."
-                className="w-full rounded-lg border border-[#22273d] bg-[#121626] py-1.5 pl-8 pr-3 text-xs text-white placeholder-zinc-500 focus:border-indigo-500 focus:outline-none"
+                placeholder="Search by business, category, or city..."
+                className="w-full rounded-lg border border-white/[0.08] bg-[#0c0c12] py-1.5 pl-8 pr-3 text-xs text-white placeholder-zinc-500 focus:border-white/30 focus:outline-none"
               />
             </div>
 
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <span className="text-[11px] text-zinc-500 hidden sm:inline">Status:</span>
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full sm:w-auto rounded-lg border border-[#22273d] bg-[#121626] px-3 py-1.5 text-xs text-zinc-300 focus:border-indigo-500 focus:outline-none cursor-pointer"
-              >
-                <option value="all">All Statuses</option>
-                <option value="ready for review">Ready for Review</option>
-                <option value="contacted">Contacted</option>
-                <option value="high">High Potential</option>
-                <option value="medium">Medium Potential</option>
-                <option value="low">Low Potential</option>
-              </select>
+            {/* Quick Status Filter Tabs */}
+            <div className="flex flex-wrap items-center gap-1.5 w-full md:w-auto">
+              {[
+                { id: 'all', label: 'All Leads' },
+                { id: 'ready for review', label: 'Pending Review' },
+                { id: 'contacted', label: 'Contacted' },
+                { id: 'high', label: 'High Score (80+)' },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setStatusFilter(tab.id)}
+                  className={`rounded-lg px-2.5 py-1 text-xs font-medium transition ${
+                    statusFilter === tab.id
+                      ? 'bg-white/10 text-white border border-white/20'
+                      : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.04]'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
             </div>
           </div>
 
           {/* LOADING STATE */}
           {isLoading && (
-            <div className="flex min-h-[320px] flex-col items-center justify-center rounded-xl border border-[#1e2334] bg-[#0c0e18] p-8 text-center">
-              <Loader2 className="h-8 w-8 animate-spin text-indigo-400 mb-3" />
+            <div className="flex min-h-[320px] flex-col items-center justify-center rounded-xl border border-white/[0.08] bg-[#07070b] p-8 text-center">
+              <Loader2 className="h-8 w-8 animate-spin text-white mb-3" />
               <h3 className="text-sm font-semibold text-white">Loading Real CRM Leads</h3>
               <p className="mt-1 text-xs text-zinc-400">
                 Fetching records live from Google Sheets CRM via Workflow 03...

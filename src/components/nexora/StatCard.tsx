@@ -19,13 +19,13 @@ export default function StatCard({
   statusNote = 'CRM read endpoint pending',
 }: StatCardProps) {
   return (
-    <div className="relative overflow-hidden rounded-xl border border-[#1e2334] bg-[#0e111a] p-5 transition hover:border-[#2d344d]">
+    <div className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-[#07070b] p-5 transition hover:border-white/20">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-medium uppercase tracking-wider text-zinc-400">
+        <span className="text-xs font-mono font-medium uppercase tracking-wider text-zinc-400">
           {label}
         </span>
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#22273d] bg-[#141824] text-zinc-400">
-          <Icon className="h-4 w-4 text-indigo-400" />
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/[0.08] bg-[#0d0d14] text-zinc-400">
+          <Icon className="h-4 w-4 text-zinc-200" />
         </div>
       </div>
 
@@ -34,13 +34,13 @@ export default function StatCard({
           {isNotConnected ? '—' : value}
         </span>
         {isNotConnected && (
-          <span className="rounded bg-zinc-800/60 px-1.5 py-0.5 text-[10px] font-medium text-zinc-400">
+          <span className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[10px] font-mono text-zinc-400">
             Pending
           </span>
         )}
       </div>
 
-      <div className="mt-2 flex items-center justify-between text-[11px] text-zinc-500">
+      <div className="mt-2 flex items-center justify-between text-[11px] text-zinc-500 font-mono">
         <span>{subtext || (isNotConnected ? statusNote : 'Live count')}</span>
       </div>
     </div>
